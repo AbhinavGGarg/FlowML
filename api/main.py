@@ -15,6 +15,7 @@ import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional, Union
+from zoneinfo import ZoneInfo
 
 # Disable joblib memory mapping to prevent resource tracker warnings
 os.environ['JOBLIB_MMAP_MODE'] = ''
@@ -318,6 +319,36 @@ def summarize_dataset(df: Optional[pd.DataFrame]) -> str:
     if len(df.columns) > 6:
         preview_columns += ", ..."
     return f"rows={len(df)}, cols={len(df.columns)}, columns=[{preview_columns}]"
+
+
+def _model_bundle_zip_timestamp() -> tuple[int, int, int, int, int, int]:
+    """Use a stable Pacific timestamp so Finder does not show confusing 'tomorrow' times."""
+    try:
+        now_local = datetime.now(ZoneInfo("America/Los_Angeles"))
+    except Exception:
+        now_local = datetime.now()
+    safe_year = max(1980, int(now_local.year))
+    return (
+        safe_year,
+        int(now_local.month),
+        int(now_local.day),
+        int(now_local.hour),
+        int(now_local.minute),
+        int(now_local.second),
+    )
+
+
+def _zip_write_bytes(
+    archive: zipfile.ZipFile,
+    *,
+    arcname: str,
+    payload: bytes,
+    date_time: tuple[int, int, int, int, int, int],
+) -> None:
+    """Write a zip entry with explicit timestamp metadata."""
+    info = zipfile.ZipInfo(filename=arcname, date_time=date_time)
+    info.compress_type = zipfile.ZIP_DEFLATED
+    archive.writestr(info, payload)
 
 
 def _target_looks_classification_like(series: pd.Series) -> bool:
@@ -1748,22 +1779,103 @@ async def download_model(bundle: bool = Query(default=True)):
         pipeline_id = pipeline_state.pipeline_id or "pipeline"
         bundle_path = OUTPUTS_DIR / f"{pipeline_id[:8]}_model_bundle.zip"
         metadata_path = results.get("metadata_path")
+        timestamp = _model_bundle_zip_timestamp()
         guidance = (
-            "FlowML Model Bundle\n"
-            "===================\n\n"
-            "This package contains a trained sklearn model artifact.\n"
-            "The .pkl file is not meant to be opened directly in Finder.\n\n"
-            "Load it in Python:\n\n"
+            "OPEN ME FIRST - FlowML Model Bundle\n"
+            "===================================\n\n"
+            "This model file is a Python artifact, not a Finder document.\n"
+            "Double-clicking model.pkl in macOS will show an app warning. That is expected.\n\n"
+            "Use it from Python:\n\n"
+            "1) pip install joblib scikit-learn pandas\n"
+            "2) python3 verify_model.py\n\n"
+            "Model artifact path:\n"
+            "artifacts/model.pkl\n"
+        )
+        model_info = {
+            "pipeline_id": pipeline_state.pipeline_id,
+            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+            "task_type": pipeline_state.stage_results.get("evaluation", {}).get("task_type"),
+            "model_name": pipeline_state.stage_results.get("training", {}).get("model_name"),
+            "best_score": pipeline_state.stage_results.get("training", {}).get("best_score"),
+            "test_score": pipeline_state.stage_results.get("training", {}).get("test_score"),
+            "download_note": "Use verify_model.py to confirm loading and prediction.",
+        }
+        verify_script = (
             "from pathlib import Path\n"
-            "import joblib\n\n"
-            "model = joblib.load(Path('model.pkl'))\n"
-            "predictions = model.predict(X)\n"
+            "import joblib\n"
+            "import pandas as pd\n\n"
+            "model_path = Path('artifacts/model.pkl')\n"
+            "model = joblib.load(model_path)\n"
+            "print('Loaded model:', type(model).__name__)\n\n"
+            "sample_path = Path('sample_input.csv')\n"
+            "if sample_path.exists():\n"
+            "    X = pd.read_csv(sample_path)\n"
+            "    preds = model.predict(X)\n"
+            "    out = pd.DataFrame({'prediction': preds})\n"
+            "    out.to_csv('sample_predictions.csv', index=False)\n"
+            "    print('Wrote sample_predictions.csv with', len(out), 'rows')\n"
+            "else:\n"
+            "    print('No sample_input.csv found in bundle.')\n"
         )
         with zipfile.ZipFile(bundle_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-            archive.write(model_path, arcname="model.pkl")
+            _zip_write_bytes(
+                archive,
+                arcname="OPEN_ME_FIRST.txt",
+                payload=guidance.encode("utf-8"),
+                date_time=timestamp,
+            )
+            _zip_write_bytes(
+                archive,
+                arcname="model_info.json",
+                payload=json.dumps(model_info, indent=2, ensure_ascii=True).encode("utf-8"),
+                date_time=timestamp,
+            )
+            _zip_write_bytes(
+                archive,
+                arcname="verify_model.py",
+                payload=verify_script.encode("utf-8"),
+                date_time=timestamp,
+            )
+            _zip_write_bytes(
+                archive,
+                arcname="artifacts/model.pkl",
+                payload=Path(model_path).read_bytes(),
+                date_time=timestamp,
+            )
             if metadata_path and Path(metadata_path).exists():
-                archive.write(metadata_path, arcname="metadata.json")
-            archive.writestr("HOW_TO_USE_MODEL.txt", guidance)
+                _zip_write_bytes(
+                    archive,
+                    arcname="artifacts/metadata.json",
+                    payload=Path(metadata_path).read_bytes(),
+                    date_time=timestamp,
+                )
+
+            training = pipeline_state.stage_results.get("training", {}) or {}
+            X_test = training.get("X_test")
+            y_test = training.get("y_test")
+            model_obj = training.get("model")
+            if isinstance(X_test, pd.DataFrame) and not X_test.empty:
+                sample_df = X_test.head(8).copy()
+                _zip_write_bytes(
+                    archive,
+                    arcname="sample_input.csv",
+                    payload=sample_df.to_csv(index=False).encode("utf-8"),
+                    date_time=timestamp,
+                )
+                if model_obj is not None and hasattr(model_obj, "predict"):
+                    try:
+                        preds = model_obj.predict(sample_df)
+                        pred_df = pd.DataFrame({"prediction": np.asarray(preds).tolist()})
+                        if isinstance(y_test, pd.Series):
+                            pred_df.insert(0, "actual", y_test.head(len(pred_df)).tolist())
+                        _zip_write_bytes(
+                            archive,
+                            arcname="sample_predictions.csv",
+                            payload=pred_df.to_csv(index=False).encode("utf-8"),
+                            date_time=timestamp,
+                        )
+                    except Exception:
+                        pass
 
         return FileResponse(
             path=str(bundle_path),

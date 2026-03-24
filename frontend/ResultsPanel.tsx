@@ -31,7 +31,7 @@ const ResultsPanel = ({ isComplete, metrics, results, explanation }: ResultsPane
     {
       icon: <FileCode className="h-4 w-4" />,
       label: "Download model bundle (.zip)",
-      sublabel: results?.model_path ? "Includes model.pkl + usage guide" : "Unavailable",
+      sublabel: results?.model_path ? "Open OPEN_ME_FIRST.txt, then run verify_model.py" : "Unavailable",
       onClick: () => window.open(getDownloadUrl("model"), "_blank", "noopener,noreferrer"),
       disabled: !results?.model_path,
     },
