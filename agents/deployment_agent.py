@@ -13,6 +13,7 @@ This agent handles model deployment including:
 """
 
 import json
+import os
 import zipfile
 from importlib.metadata import version as _pkg_version
 from pathlib import Path
@@ -26,9 +27,22 @@ from agents.base_agent import BaseAgent
 from agents.report_generator import ReportGenerator
 from core.exceptions import AgentExecutionError
 
+def _runtime_storage_root() -> Path:
+    """Return a writable storage root for local and Vercel runtimes."""
+    override = os.getenv("FLOWML_DATA_DIR", "").strip()
+    if override:
+        return Path(override)
+    if os.getenv("VERCEL"):
+        return Path("/tmp/flowml")
+    return Path(".")
+
+
+STORAGE_ROOT = _runtime_storage_root()
+STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
+
 # Ensure outputs directory exists
-OUTPUTS_DIR = Path("outputs")
-OUTPUTS_DIR.mkdir(exist_ok=True)
+OUTPUTS_DIR = STORAGE_ROOT / "outputs"
+OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Packages we want to pin in the generated requirements.txt
 _SERVING_PACKAGES = [

@@ -11,6 +11,7 @@ import os
 import shutil
 import uuid
 import warnings
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional, Union
 
@@ -38,13 +39,26 @@ from utils.evaluation_insights import generate_evaluation_insights
 logging.getLogger("uvicorn.access").disabled = True
 logging.getLogger("uvicorn.access").propagate = False
 
+def _runtime_storage_root() -> Path:
+    """Return a writable storage root for local and Vercel runtimes."""
+    override = os.getenv("FLOWML_DATA_DIR", "").strip()
+    if override:
+        return Path(override)
+    if os.getenv("VERCEL"):
+        return Path("/tmp/flowml")
+    return Path(".")
+
+
+STORAGE_ROOT = _runtime_storage_root()
+STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
+
 # Ensure outputs directory exists
-OUTPUTS_DIR = Path("outputs")
-OUTPUTS_DIR.mkdir(exist_ok=True)
+OUTPUTS_DIR = STORAGE_ROOT / "outputs"
+OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Ensure uploads directory exists
-UPLOADS_DIR = Path("uploads")
-UPLOADS_DIR.mkdir(exist_ok=True)
+UPLOADS_DIR = STORAGE_ROOT / "uploads"
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="FlowML AutoML API")
 logger = get_logger("api.main")
