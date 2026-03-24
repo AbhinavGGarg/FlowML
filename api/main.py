@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore", message="resource_tracker: .*FileNotFoundError
 
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel
@@ -1484,6 +1484,119 @@ async def start_pipeline(config: PipelineConfig = PipelineConfig()):
         "status": "completed",
         "stages": pipeline_state.stage_statuses,
     }
+
+
+@app.post("/api/pipeline/execute")
+async def execute_pipeline(
+    file: UploadFile = File(...),
+    target_column: str = Form(...),
+    task_type: str = Form("classification"),
+    test_size: float = Form(0.2),
+    random_state: int = Form(42),
+):
+    """Execute upload + target selection + full pipeline in one request.
+
+    This endpoint avoids cross-request state loss on serverless deployments.
+    """
+    allowed_extensions = {".csv", ".json", ".xlsx"}
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in allowed_extensions:
+        raise HTTPException(status_code=400, detail=f"Invalid file type. Allowed: {allowed_extensions}")
+
+    dataset_id = str(uuid.uuid4())
+    file_path = UPLOADS_DIR / f"{dataset_id}{file_ext}"
+
+    try:
+        with file_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        if file_ext == ".csv":
+            df = pd.read_csv(file_path)
+        elif file_ext == ".json":
+            df = pd.read_json(file_path)
+        elif file_ext == ".xlsx":
+            df = pd.read_excel(file_path)
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported file type")
+
+        df = df.loc[:, ~df.columns.astype(str).str.match(r"^Unnamed")]
+        if target_column not in df.columns:
+            raise HTTPException(status_code=400, detail=f"Column '{target_column}' not found in dataset")
+
+        pipeline_state.reset_for_dataset(
+            df=df,
+            dataset_path=str(file_path),
+            dataset_filename=file.filename,
+            pipeline_id=dataset_id,
+        )
+        pipeline_state.target_column = target_column
+
+        resolved_task_type = _resolve_task_type(task_type)
+        effective_config = PipelineConfig(
+            task_type=resolved_task_type,
+            test_size=test_size,
+            random_state=random_state,
+        )
+        pipeline_state.update_pipeline_config(effective_config.model_dump())
+        start_new_pipeline_run()
+
+        stages_order = ["analysis", "preprocessing", "features", "model_selection", "training", "loss", "evaluation", "results"]
+        for stage in stages_order:
+            if pipeline_state.stage_statuses.get(stage) == "waiting":
+                await run_pipeline_stage(stage, effective_config)
+
+        maybe_record_revision(
+            reason="Initial pipeline run",
+            changed_stages=["analysis", "preprocessing", "feature_engineering", "training", "evaluation", "explainability"],
+        )
+
+        evaluation = pipeline_state.stage_results.get("evaluation", {})
+        training = pipeline_state.stage_results.get("training", {})
+        stage_results = {
+            stage: summarize_stage_result(stage, pipeline_state.stage_results.get(stage))
+            for stage in stages_order
+        }
+
+        return {
+            "status": "completed",
+            "pipeline_id": pipeline_state.pipeline_id,
+            "stages": pipeline_state.stage_statuses,
+            "stage_results": stage_results,
+            "stage_logs": pipeline_state.stage_logs,
+            "metrics": {
+                "task_type": evaluation.get("task_type", "classification"),
+                "accuracy": evaluation.get("accuracy", 0),
+                "precision": evaluation.get("precision", 0),
+                "recall": evaluation.get("recall", 0),
+                "f1": evaluation.get("f1", 0),
+                "roc_auc": evaluation.get("roc_auc"),
+                "r2": evaluation.get("r2"),
+                "mae": evaluation.get("mae"),
+                "mse": evaluation.get("mse"),
+                "rmse": evaluation.get("rmse"),
+                "best_score": training.get("best_score", 0),
+                "cv_scores": training.get("cv_scores", []),
+                "cv_std": training.get("cv_std"),
+                "train_score": training.get("train_score"),
+                "test_score": training.get("test_score"),
+                "model_name": training.get("model_name"),
+                "deployment_decision": evaluation.get("deployment_decision"),
+                "performance_summary": evaluation.get("performance_summary"),
+                "confusion_matrix": evaluation.get("confusion_matrix", []),
+                "baseline_metrics": evaluation.get("baseline_metrics"),
+            },
+            "explanation": summarize_stage_result("explanation", pipeline_state.stage_results.get("explanation", {})) or {},
+            "dataset": {
+                "filename": pipeline_state.dataset_filename or "unknown",
+                "rows": len(df),
+                "columns": len(df.columns),
+                "column_names": list(df.columns),
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Pipeline execution failed: {str(e)}")
 
 
 @app.post("/api/pipeline/stage/{stage_id}")

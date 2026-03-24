@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Brain, Database, Gauge, Play, Target } from "lucide-react";
 import { stages, type PipelineStage, type StageStatus } from "@/data/pipelineStages";
 import {
+  executePipeline,
   getDatasetColumns,
   getDatasetPreview,
   getDatasetSummary,
@@ -12,7 +13,6 @@ import {
   getPipelineLogs,
   getPipelineStatus,
   getStageResult,
-  runPipelineStage,
   setTargetColumn,
   uploadDataset,
   type DatasetColumn,
@@ -66,6 +66,7 @@ const Pipeline = () => {
   const [metrics, setMetrics] = useState<MetricsResponse | null>(null);
   const [explanation, setExplanation] = useState<Record<string, unknown> | null>(null);
   const [selectedColumn, setSelectedColumnState] = useState<string | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [taskType, setTaskType] = useState<TaskType>("classification");
   const [isUploading, setIsUploading] = useState(false);
   const [isSavingTarget, setIsSavingTarget] = useState(false);
@@ -262,13 +263,34 @@ const Pipeline = () => {
     setError(null);
 
     try {
-      await uploadDataset(file);
+      const response = await uploadDataset(file);
+      setUploadedFile(file);
+      setSelectedColumnState(null);
       setMetrics(null);
       setExplanation(null);
       setDatasetPreview(null);
       setStageResults({});
       setStageLogs(createEmptyLogs());
-      await refreshPipelineData();
+      setDatasetSummary({
+        filename: response.filename,
+        rows: response.rows,
+        columns: response.columns,
+        column_names: response.column_names,
+        column_types: Object.fromEntries(response.column_names.map((name) => [name, "unknown"])),
+        missing_values: {},
+        numeric_summary: null,
+      });
+      setDatasetColumns(
+        response.column_names.map((name) => ({
+          name,
+          dtype: "unknown",
+          is_numeric: false,
+          missing_pct: 0,
+        })),
+      );
+      await refreshPipelineData().catch(() => {
+        // Upload succeeded; keep local dataset metadata even if backend state polling fails.
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Dataset upload failed.");
     } finally {
@@ -280,20 +302,22 @@ const Pipeline = () => {
     setIsSavingTarget(true);
     setError(null);
 
+    setSelectedColumnState(column);
+    setTaskType(inferTaskType(datasetColumns, column));
     try {
       await setTargetColumn(column);
-      setSelectedColumnState(column);
-      setTaskType(inferTaskType(datasetColumns, column));
-      await refreshPipelineData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to set target column.");
+      await refreshPipelineData().catch(() => {
+        // Keep local target selection if backend state polling fails.
+      });
+    } catch {
+      // Keep local selection so users can still run the one-shot execute endpoint.
     } finally {
       setIsSavingTarget(false);
     }
   }, [datasetColumns, refreshPipelineData]);
 
   const handleRunPipeline = useCallback(async () => {
-    if (!datasetSummary || !selectedColumn) {
+    if (!uploadedFile || !selectedColumn) {
       setError("Upload a dataset and select a target column before running the pipeline.");
       return;
     }
@@ -305,65 +329,42 @@ const Pipeline = () => {
 
     setIsRunningPipeline(true);
     setError(null);
-    setPipelineStatus(createInitialStatuses());
+    const initialStatuses = createInitialStatuses();
+    setPipelineStatus(initialStatuses);
     setStageResults({});
     setMetrics(null);
     setExplanation(null);
     setStageLogs(createEmptyLogs());
+    setPipelineStatus((current) => ({ ...current, analysis: "running" }));
 
-    for (let index = 0; index < EXECUTION_STAGE_ORDER.length; index += 1) {
-      const stageId = EXECUTION_STAGE_ORDER[index];
-
+    try {
+      const response = await executePipeline(uploadedFile, selectedColumn, config);
+      setPipelineStatus({ ...createInitialStatuses(), ...response.stages });
+      setStageResults(response.stage_results || {});
+      setStageLogs({ ...createEmptyLogs(), ...(response.stage_logs || {}) });
+      setMetrics(response.metrics || null);
+      setExplanation(response.explanation || null);
+      if (response.dataset) {
+        setDatasetSummary((current) => ({
+          filename: response.dataset.filename,
+          rows: response.dataset.rows,
+          columns: response.dataset.columns,
+          column_names: response.dataset.column_names,
+          column_types: current?.column_types || {},
+          missing_values: current?.missing_values || {},
+          numeric_summary: current?.numeric_summary || null,
+        }));
+      }
+    } catch (err) {
       setPipelineStatus((current) => ({
         ...current,
-        [stageId]: "running",
+        analysis: "failed",
       }));
-
-      try {
-        const response = await runPipelineStage(stageId, config);
-        const status = response.status as StageStatus;
-        setPipelineStatus((current) => ({
-          ...current,
-          [stageId]: status,
-        }));
-
-        setStageResults((current) => ({
-          ...current,
-          [stageId]: response.result || {},
-        }));
-
-        await refreshLogs();
-
-        if (stageId === "evaluation" || stageId === "results") {
-          try {
-            setMetrics(await getMetrics());
-          } catch {
-            setMetrics(null);
-          }
-        }
-        if (stageId === "results") {
-          try {
-            setExplanation(await getExplanation());
-          } catch {
-            // Keep any existing explanation; allow retry later.
-          }
-        }
-      } catch (err) {
-        setPipelineStatus((current) => ({
-          ...current,
-          [stageId]: "failed",
-        }));
-        await refreshLogs();
-        setError(err instanceof Error ? err.message : `The ${stageId} stage failed.`);
-        break;
-      }
+      setError(err instanceof Error ? err.message : "Pipeline execution failed.");
+    } finally {
+      setIsRunningPipeline(false);
     }
-
-    await refreshPipelineData().catch(() => {
-      // Keep the UI state we already have if the final refresh fails.
-    });
-    setIsRunningPipeline(false);
-  }, [datasetSummary, refreshLogs, refreshPipelineData, selectedColumn, taskType]);
+  }, [uploadedFile, selectedColumn, taskType]);
 
   const getVisibleStageStatus = useCallback((stageId: string): StageStatus => {
     if (stageId === "evaluation") {

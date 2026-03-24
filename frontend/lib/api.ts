@@ -87,6 +87,22 @@ export interface StageResultResponse {
   result: Record<string, unknown> | null;
 }
 
+export interface ExecutePipelineResponse {
+  status: string;
+  pipeline_id: string | null;
+  stages: Record<string, PipelineStageStatus>;
+  stage_results: Record<string, Record<string, unknown> | null>;
+  stage_logs: Record<string, string[]>;
+  metrics: MetricsResponse;
+  explanation: Record<string, unknown>;
+  dataset: {
+    filename: string;
+    rows: number;
+    columns: number;
+    column_names: string[];
+  };
+}
+
 export interface BaselineMetrics {
   strategy?: string | null;
   label?: string | null;
@@ -291,6 +307,24 @@ export function runPipelineStage(stageId: string, config: PipelineConfig): Promi
       "Content-Type": "application/json",
     },
     body: JSON.stringify(config),
+  });
+}
+
+export async function executePipeline(
+  file: File,
+  targetColumn: string,
+  config: PipelineConfig,
+): Promise<ExecutePipelineResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("target_column", targetColumn);
+  formData.append("task_type", config.task_type);
+  formData.append("test_size", String(config.test_size));
+  formData.append("random_state", String(config.random_state));
+
+  return apiRequest<ExecutePipelineResponse>("/api/pipeline/execute", {
+    method: "POST",
+    body: formData,
   });
 }
 
