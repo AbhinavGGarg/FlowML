@@ -10,6 +10,7 @@ import logging
 import os
 import shutil
 import uuid
+import zipfile
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1724,13 +1725,43 @@ async def get_revision_history():
 
 
 @app.get("/api/results/download/model")
-async def download_model():
-    """Download the trained model."""
+async def download_model(bundle: bool = Query(default=True)):
+    """Download the trained model.
+
+    By default this returns a zip bundle so users can open it easily on desktop.
+    """
     results = pipeline_state.stage_results.get("results", {})
     model_path = results.get("model_path")
 
     if not model_path or not Path(model_path).exists():
         raise HTTPException(status_code=404, detail="No model available")
+
+    if bundle:
+        pipeline_id = pipeline_state.pipeline_id or "pipeline"
+        bundle_path = OUTPUTS_DIR / f"{pipeline_id[:8]}_model_bundle.zip"
+        metadata_path = results.get("metadata_path")
+        guidance = (
+            "FlowML Model Bundle\n"
+            "===================\n\n"
+            "This package contains a trained sklearn model artifact.\n"
+            "The .pkl file is not meant to be opened directly in Finder.\n\n"
+            "Load it in Python:\n\n"
+            "from pathlib import Path\n"
+            "import joblib\n\n"
+            "model = joblib.load(Path('model.pkl'))\n"
+            "predictions = model.predict(X)\n"
+        )
+        with zipfile.ZipFile(bundle_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.write(model_path, arcname="model.pkl")
+            if metadata_path and Path(metadata_path).exists():
+                archive.write(metadata_path, arcname="metadata.json")
+            archive.writestr("HOW_TO_USE_MODEL.txt", guidance)
+
+        return FileResponse(
+            path=str(bundle_path),
+            filename=f"model_bundle_{pipeline_id[:8]}.zip",
+            media_type="application/zip",
+        )
 
     return FileResponse(
         path=model_path,
