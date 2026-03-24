@@ -26,10 +26,10 @@ const TitleComponent = () => {
     <>
       <style>{`
         @keyframes color-flow {
-          0% { color: #a855f7; }
-          33% { color: #6d28d9; }
-          66% { color: #34d399; }
-          100% { color: #a855f7; }
+          0% { color: #60a5fa; }
+          33% { color: #3b82f6; }
+          66% { color: #38bdf8; }
+          100% { color: #60a5fa; }
         }
       `}</style>
       <motion.div
@@ -45,8 +45,8 @@ const TitleComponent = () => {
             style={{
               fontFamily:
                 index < brand.length
-                  ? "'Geist Sans', sans-serif"
-                  : "'Geist Mono', 'JetBrains Mono', monospace",
+                  ? "'Sora', 'Geist Sans', sans-serif"
+                  : "'IBM Plex Mono', 'Geist Mono', monospace",
               letterSpacing: index < brand.length ? "-0.03em" : "0",
               fontWeight: index < brand.length ? 600 : 400,
               fontSize: "clamp(4.25rem, 9vw, 6.25rem)",

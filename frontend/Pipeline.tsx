@@ -31,6 +31,7 @@ import PredictionTarget from "./PredictionTarget";
 import ResultsPanel from "./ResultsPanel";
 import StageDetailPanel from "./StageDetailPanel";
 import TitleComponent from "./TitleComponent";
+import WaterLogo from "./components/WaterLogo";
 
 const HIDDEN_STAGE_IDS = new Set(["loss"]);
 const VISIBLE_STAGES = stages.filter((stage) => !HIDDEN_STAGE_IDS.has(stage.id));
@@ -401,11 +402,7 @@ const Pipeline = () => {
       <NeuralBackground />
       <div className="relative z-10 mx-auto w-full max-w-6xl space-y-5 px-4 pb-8 pt-4 sm:pt-6">
         <div className="relative z-20 mb-6 flex items-end gap-4 sm:mb-8 sm:gap-6">
-          <img
-            src="/stage-icons/logo.png"
-            alt="FlowML logo"
-            className="block h-auto w-24 object-contain sm:w-32 md:w-36 lg:w-40"
-          />
+          <WaterLogo className="h-auto w-24 sm:w-32 md:w-36 lg:w-40" />
           <div className="translate-y-1 sm:translate-y-2">
             <TitleComponent />
           </div>

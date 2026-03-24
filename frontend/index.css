@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    --background: 220 24% 8%;
+    --background: 220 52% 6%;
     --foreground: 210 40% 98%;
-    --card: 220 22% 11%;
+    --card: 220 45% 9%;
     --card-foreground: 210 40% 98%;
-    --popover: 220 22% 11%;
+    --popover: 220 45% 9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 266 92% 67%;
+    --primary: 216 91% 60%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 220 18% 16%;
-    --secondary-foreground: 210 26% 91%;
-    --muted: 220 16% 18%;
-    --muted-foreground: 215 20% 67%;
-    --accent: 154 77% 49%;
-    --accent-foreground: 220 24% 8%;
+    --secondary: 220 35% 14%;
+    --secondary-foreground: 210 30% 93%;
+    --muted: 220 32% 15%;
+    --muted-foreground: 215 22% 72%;
+    --accent: 200 100% 64%;
+    --accent-foreground: 220 52% 6%;
     --destructive: 0 79% 60%;
     --destructive-foreground: 210 40% 98%;
-    --border: 220 18% 22%;
-    --input: 220 18% 22%;
-    --ring: 266 92% 67%;
-    --surface-hover: 220 16% 20%;
+    --border: 217 45% 24%;
+    --input: 217 45% 24%;
+    --ring: 216 91% 60%;
+    --surface-hover: 220 34% 18%;
   }
 
   * {
@@ -37,9 +37,9 @@
   body {
     @apply min-h-screen bg-background text-foreground antialiased;
     background-image:
-      radial-gradient(circle at top, rgba(115, 74, 255, 0.18), transparent 32%),
-      radial-gradient(circle at bottom right, rgba(25, 196, 125, 0.14), transparent 28%),
-      linear-gradient(180deg, rgba(12, 15, 27, 0.98), rgba(8, 10, 18, 1));
+      radial-gradient(circle at 8% 8%, rgba(59, 130, 246, 0.22), transparent 36%),
+      radial-gradient(circle at 88% 18%, rgba(14, 116, 255, 0.20), transparent 34%),
+      linear-gradient(180deg, rgba(1, 5, 18, 1), rgba(1, 9, 30, 1));
   }
 
   #root {
@@ -63,15 +63,24 @@
 
 @layer utilities {
   .glow-purple {
-    box-shadow: 0 0 0 1px rgba(153, 102, 255, 0.2), 0 0 26px rgba(153, 102, 255, 0.35);
+    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.24), 0 0 26px rgba(59, 130, 246, 0.34);
   }
 
   .glow-green-sm {
-    box-shadow: 0 0 0 1px rgba(35, 218, 140, 0.24), 0 0 18px rgba(35, 218, 140, 0.2);
+    box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.24), 0 0 18px rgba(56, 189, 248, 0.2);
   }
 
   .glow-green {
-    box-shadow: 0 0 0 1px rgba(35, 218, 140, 0.28), 0 0 28px rgba(35, 218, 140, 0.28);
+    box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.28), 0 0 28px rgba(56, 189, 248, 0.28);
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(18px);
+    }
   }
 
   .scrollbar-thin {

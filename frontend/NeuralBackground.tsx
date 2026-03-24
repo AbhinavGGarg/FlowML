@@ -33,9 +33,9 @@ const NeuralBackground = () => {
     }
 
     const colors = [
-      "rgba(124, 88, 234, ",  // purple
-      "rgba(56, 189, 128, ",  // green
-      "rgba(56, 178, 200, ",  // teal
+      "rgba(30, 144, 255, ",
+      "rgba(96, 165, 250, ",
+      "rgba(147, 197, 253, ",
     ];
 
     const draw = () => {
@@ -49,7 +49,7 @@ const NeuralBackground = () => {
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < 180) {
             const opacity = (1 - dist / 180) * 0.06;
-            ctx.strokeStyle = `rgba(124, 88, 234, ${opacity})`;
+            ctx.strokeStyle = `rgba(59, 130, 246, ${opacity})`;
             ctx.lineWidth = 0.5;
             ctx.beginPath();
             ctx.moveTo(nodes[i].x, nodes[i].y);
