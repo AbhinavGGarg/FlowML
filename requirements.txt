@@ -1,29 +1,17 @@
-python-dotenv>=1.0.1
-pydantic>=2.0.0
-pydantic-settings>=2.0.0
-httpx>=0.27.0
+python-dotenv==1.0.1
+pydantic==2.8.2
+pydantic-settings==2.4.0
+httpx==0.27.2
 
 # Web framework
-fastapi>=0.109.0
-uvicorn>=0.27.0
+fastapi==0.111.1
+uvicorn==0.30.6
 
-# Data processing
-pandas>=2.0.0
-numpy>=1.24.0
+# Data processing / ML core
+numpy==1.26.4
+pandas==2.2.2
+scikit-learn==1.5.1
+joblib==1.4.2
 
-# ML libraries
-scikit-learn>=1.4.0
-xgboost>=2.0.0
-lightgbm>=3.0
-optuna>=3.0.0
-
-# File handling
-python-multipart>=0.0.6
-openpyxl>=3.1.0
-
-# Utilities
-joblib>=1.3.0
-
-# Report generation
-jinja2>=3.1.0
-matplotlib>=3.8.0
+# API upload handling
+python-multipart==0.0.9
