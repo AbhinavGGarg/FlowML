@@ -1,6 +1,16 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
-import { AlertCircle, Check, Loader2 } from "lucide-react";
+import {
+  AlertCircle,
+  Bot,
+  Check,
+  Compass,
+  Droplets,
+  FlaskConical,
+  Layers,
+  Loader2,
+  PackageOpen,
+  SearchCheck,
+} from "lucide-react";
 import { StageStatus, PipelineStage } from "@/data/pipelineStages";
 import {
   HoverCard,
@@ -18,20 +28,22 @@ interface PipelineNodeProps {
 
 const PipelineNode = ({ stage, status, index, onClick }: PipelineNodeProps) => {
   const isClickable = status === "completed" || status === "failed";
-  const [iconLoadFailed, setIconLoadFailed] = useState(false);
 
-  const renderStageIcon = (className = "h-16 w-16 object-contain") =>
-    iconLoadFailed ? (
-      <span>{stage.icon}</span>
-    ) : (
-      <img
-        src={stage.iconPath}
-        alt=""
-        className={className}
-        loading="lazy"
-        onError={() => setIconLoadFailed(true)}
-      />
-    );
+  const stageIconMap: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number }>> = {
+    analysis: SearchCheck,
+    preprocessing: Droplets,
+    features: Layers,
+    model_selection: Compass,
+    training: Bot,
+    evaluation: FlaskConical,
+    results: PackageOpen,
+    loss: Layers,
+  };
+
+  const renderStageIcon = (className = "h-8 w-8") => {
+    const Icon = stageIconMap[stage.id] || Droplets;
+    return <Icon className={`${className} text-blue-200`} strokeWidth={2.1} />;
+  };
 
   const nodeContent = (
     <motion.button
@@ -45,7 +57,7 @@ const PipelineNode = ({ stage, status, index, onClick }: PipelineNodeProps) => {
         className={`relative h-24 w-24 rounded-[1.75rem] flex items-center justify-center text-2xl transition-all duration-500 border
           ${status === "waiting" ? "bg-secondary/85 border-border/50" : ""}
           ${status === "running" ? "bg-secondary border-primary/60 glow-purple" : ""}
-          ${status === "completed" ? "bg-accent/10 border-accent/80 glow-green-sm group-hover:glow-green" : ""}
+          ${status === "completed" ? "bg-blue-500/15 border-blue-300/70 glow-green-sm group-hover:glow-green" : ""}
           ${status === "failed" ? "bg-destructive/10 border-destructive/70" : ""}
         `}
         whileHover={isClickable ? { scale: 1.1, y: -4 } : {}}
@@ -67,12 +79,12 @@ const PipelineNode = ({ stage, status, index, onClick }: PipelineNodeProps) => {
           <div className="relative">
             <div>{renderStageIcon()}</div>
             <motion.div
-              className="absolute -top-1 -right-2 w-5 h-5 rounded-full bg-accent flex items-center justify-center"
+              className="absolute -top-1 -right-2 w-5 h-5 rounded-full bg-blue-400 flex items-center justify-center"
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", delay: 0.2 }}
             >
-              <Check className="w-3 h-3 text-accent-foreground" strokeWidth={3} />
+              <Check className="w-3 h-3 text-slate-900" strokeWidth={3} />
             </motion.div>
           </div>
         ) : (
@@ -84,7 +96,7 @@ const PipelineNode = ({ stage, status, index, onClick }: PipelineNodeProps) => {
         className={`text-sm font-medium transition-colors duration-500 max-w-[110px] text-center leading-tight
           ${status === "waiting" ? "text-muted-foreground/40" : ""}
           ${status === "running" ? "text-primary" : ""}
-          ${status === "completed" ? "text-foreground group-hover:text-accent" : ""}
+          ${status === "completed" ? "text-foreground group-hover:text-blue-300" : ""}
           ${status === "failed" ? "text-destructive" : ""}
         `}
       >
@@ -101,7 +113,7 @@ const PipelineNode = ({ stage, status, index, onClick }: PipelineNodeProps) => {
       <HoverCardContent className="w-72 glass-card border-border/50 p-0 overflow-hidden" side="bottom" sideOffset={12}>
         <div className="p-3 border-b border-border/30">
           <div className="flex items-center gap-2 mb-1">
-            <div className="flex h-8 w-8 items-center justify-center">{renderStageIcon("h-8 w-8 object-contain")}</div>
+            <div className="flex h-8 w-8 items-center justify-center">{renderStageIcon("h-6 w-6")}</div>
             <span className="text-sm font-semibold text-foreground">{stage.label}</span>
             {status === "completed" && (
               <span className="ml-auto text-[10px] font-mono text-accent">✓ done</span>

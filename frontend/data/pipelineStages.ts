@@ -4,7 +4,6 @@ export interface PipelineStage {
   id: string;
   label: string;
   icon: string;
-  iconPath: string;
   description: string;
   details: string;
   tooltipPoints: string[];
@@ -15,9 +14,8 @@ export interface PipelineStage {
 export const stages: PipelineStage[] = [
   {
     id: "analysis",
-    label: "Analysis",
-    icon: "🔎",
-    iconPath: "/stage-icons/analyze.png",
+    label: "Signal Scan",
+    icon: "🌊",
     description: "Inspect dataset structure, quality, and feature relationships.",
     details:
       "The analysis stage profiles the uploaded dataset, scans for missing values and outliers, and highlights correlations that matter for modeling decisions.",
@@ -38,9 +36,8 @@ print(missing.head())`,
   },
   {
     id: "preprocessing",
-    label: "Preprocess",
-    icon: "🧼",
-    iconPath: "/stage-icons/preprocess.png",
+    label: "Data Prep",
+    icon: "🫧",
     description: "Clean raw data and prepare a model-ready feature matrix.",
     details:
       "This stage imputes missing values, encodes categorical columns, scales numeric features, and splits the dataset into training and evaluation sets.",
@@ -63,9 +60,8 @@ numeric_pipe = Pipeline([
   },
   {
     id: "features",
-    label: "Features",
-    icon: "🧠",
-    iconPath: "/stage-icons/features.png",
+    label: "Feature Flow",
+    icon: "🔵",
     description: "Select and engineer the features that best explain the target.",
     details:
       "Feature engineering cleans raw columns, creates a small set of smarter interactions, removes redundant signals, and ranks the final features before model training.",
@@ -91,9 +87,8 @@ selected_features = [name for name, score in feature_scores.items() if score >= 
   },
   {
     id: "model_selection",
-    label: "Model Select",
+    label: "Model Match",
     icon: "🧭",
-    iconPath: "/stage-icons/modelselect.png",
     description: "Choose the best model family and sensible hyperparameters.",
     details:
       "Model selection balances dataset size, feature mix, and risk signals to propose a reliable estimator before training begins.",
@@ -111,9 +106,8 @@ print("Hyperparameters:", hyperparameters)`,
   },
   {
     id: "training",
-    label: "Model Training",
-    icon: "🤖",
-    iconPath: "/stage-icons/training.png",
+    label: "Model Forge",
+    icon: "⚙️",
     description: "Train the best-performing model on the prepared data.",
     details:
       "In this step, the system trains a machine learning model using the prepared dataset. The model learns patterns that help predict the target variable. Different models may be evaluated, and the one that performs best is selected automatically.",
@@ -136,7 +130,6 @@ model.fit(X_train, y_train)`,
     id: "loss",
     label: "Loss",
     icon: "📉",
-    iconPath: "/stage-icons/loss.png",
     description: "Compare training and validation loss to spot drift or overfitting.",
     details:
       "Loss monitoring gives quick feedback on whether the model is learning generalizable structure or memorizing the training set.",
@@ -156,9 +149,8 @@ print("best_epoch", best_epoch)`,
   },
   {
     id: "evaluation",
-    label: "Evaluation",
+    label: "Validation",
     icon: "🎯",
-    iconPath: "/stage-icons/evaluation.png",
     description: "Measure model quality, reliability, and deployment readiness on held-out data.",
     details:
       "Evaluation checks how well the model performs on unseen examples, compares it with simple baselines, and helps you judge whether the model generalizes well enough to trust.",
@@ -174,9 +166,8 @@ print("best_epoch", best_epoch)`,
   },
   {
     id: "results",
-    label: "Results",
+    label: "Delivery",
     icon: "📦",
-    iconPath: "/stage-icons/results.png",
     description: "Package the model artifacts and summary metrics.",
     details:
       "The final stage bundles the trained model, configuration, and evaluation outputs into assets that can be downloaded or reused later.",
