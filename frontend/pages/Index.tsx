@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import WaterLogo from "@/components/WaterLogo";
 
-type HomeTab = "impact" | "inspiration";
+type HomeTab = "impact" | "problem" | "inspiration";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<HomeTab>("impact");
@@ -96,6 +96,17 @@ const Index = () => {
             </button>
             <button
               type="button"
+              onClick={() => setActiveTab("problem")}
+              className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
+                activeTab === "problem"
+                  ? "bg-blue-500 text-white shadow-[0_10px_24px_rgba(37,99,235,0.35)]"
+                  : "border border-blue-500/35 bg-blue-500/10 text-blue-100/80 hover:bg-blue-500/20"
+              }`}
+            >
+              Problem + Solution
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab("inspiration")}
               className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
                 activeTab === "inspiration"
@@ -119,6 +130,23 @@ const Index = () => {
                 <h3 className="text-lg font-semibold text-blue-100">Technical Outcome</h3>
                 <p className="mt-2 text-sm leading-relaxed text-blue-100/80">
                   Stage-level visibility, reproducible outputs, and clear evaluation narratives make ML workflows easier to audit and improve.
+                </p>
+              </div>
+            </div>
+          ) : activeTab === "problem" ? (
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="rounded-xl border border-blue-500/25 bg-blue-600/10 p-5">
+                <h3 className="text-lg font-semibold text-blue-100">The Problem</h3>
+                <p className="mt-2 text-sm leading-relaxed text-blue-100/80">
+                  Teams often have useful tabular data but get stuck between messy preprocessing, uncertain model choices,
+                  and unclear evaluation. This slows down deployment and creates low trust in ML outcomes.
+                </p>
+              </div>
+              <div className="rounded-xl border border-blue-500/25 bg-blue-600/10 p-5">
+                <h3 className="text-lg font-semibold text-blue-100">How FlowML Solves It</h3>
+                <p className="mt-2 text-sm leading-relaxed text-blue-100/80">
+                  FlowML guides the full workflow from upload to delivery, with staged execution, model comparison, and
+                  transparent results. It turns a fragmented ML process into one clear studio experience.
                 </p>
               </div>
             </div>
