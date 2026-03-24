@@ -268,7 +268,7 @@ const Pipeline = () => {
       setSelectedColumnState(null);
       setMetrics(null);
       setExplanation(null);
-      setDatasetPreview(null);
+      setDatasetPreview(response.preview || null);
       setStageResults({});
       setStageLogs(createEmptyLogs());
       setDatasetSummary({
@@ -354,6 +354,9 @@ const Pipeline = () => {
           missing_values: current?.missing_values || {},
           numeric_summary: current?.numeric_summary || null,
         }));
+      }
+      if (response.dataset_preview) {
+        setDatasetPreview(response.dataset_preview);
       }
     } catch (err) {
       setPipelineStatus((current) => ({

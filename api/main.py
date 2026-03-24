@@ -1350,6 +1350,10 @@ async def upload_dataset(file: UploadFile = File(...)):
             "rows": len(df),
             "columns": len(df.columns),
             "column_names": list(df.columns),
+            "preview": {
+                "columns": list(df.columns),
+                "rows": df.head(5).fillna("").to_dict(orient="records"),
+            },
         }
 
     except Exception as e:
@@ -1592,6 +1596,10 @@ async def execute_pipeline(
                 "rows": len(df),
                 "columns": len(df.columns),
                 "column_names": list(df.columns),
+            },
+            "dataset_preview": {
+                "columns": list(df.columns),
+                "rows": df.head(5).fillna("").to_dict(orient="records"),
             },
         }
     except HTTPException:

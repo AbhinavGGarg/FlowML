@@ -7,6 +7,7 @@ export interface DatasetUploadResponse {
   rows: number;
   columns: number;
   column_names: string[];
+  preview?: DatasetPreviewResponse;
 }
 
 export interface DatasetSummary {
@@ -101,6 +102,7 @@ export interface ExecutePipelineResponse {
     columns: number;
     column_names: string[];
   };
+  dataset_preview?: DatasetPreviewResponse;
 }
 
 export interface BaselineMetrics {
