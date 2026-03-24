@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 24% 8%;
+    --foreground: 210 40% 98%;
+    --card: 220 22% 11%;
+    --card-foreground: 210 40% 98%;
+    --popover: 220 22% 11%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 266 92% 67%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 220 18% 16%;
+    --secondary-foreground: 210 26% 91%;
+    --muted: 220 16% 18%;
+    --muted-foreground: 215 20% 67%;
+    --accent: 154 77% 49%;
+    --accent-foreground: 220 24% 8%;
+    --destructive: 0 79% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 220 18% 22%;
+    --input: 220 18% 22%;
+    --ring: 266 92% 67%;
+    --surface-hover: 220 16% 20%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply min-h-screen bg-background text-foreground antialiased;
+    background-image:
+      radial-gradient(circle at top, rgba(115, 74, 255, 0.18), transparent 32%),
+      radial-gradient(circle at bottom right, rgba(25, 196, 125, 0.14), transparent 28%),
+      linear-gradient(180deg, rgba(12, 15, 27, 0.98), rgba(8, 10, 18, 1));
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply rounded-2xl border bg-card/75 shadow-2xl backdrop-blur-xl;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+  }
+
+  .gradient-text {
+    background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+@layer utilities {
+  .glow-purple {
+    box-shadow: 0 0 0 1px rgba(153, 102, 255, 0.2), 0 0 26px rgba(153, 102, 255, 0.35);
+  }
+
+  .glow-green-sm {
+    box-shadow: 0 0 0 1px rgba(35, 218, 140, 0.24), 0 0 18px rgba(35, 218, 140, 0.2);
+  }
+
+  .glow-green {
+    box-shadow: 0 0 0 1px rgba(35, 218, 140, 0.28), 0 0 28px rgba(35, 218, 140, 0.28);
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.35);
+    border-radius: 9999px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
