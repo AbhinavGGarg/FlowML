@@ -24,6 +24,7 @@ export interface DatasetColumn {
   dtype: string;
   is_numeric: boolean;
   missing_pct: number;
+  unique_values?: number;
 }
 
 export interface DatasetPreviewResponse {
@@ -185,7 +186,7 @@ export interface QualityFlag {
 }
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || "http://127.0.0.1:8000";
-const CHAT_REQUEST_TIMEOUT_MS = 210000;
+const CHAT_REQUEST_TIMEOUT_MS = 30000;
 const CHAT_APPLY_TIMEOUT_MS = 300000;
 
 class ApiTimeoutError extends Error {

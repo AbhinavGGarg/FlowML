@@ -130,6 +130,7 @@ def generate_evaluation_insights(
     target_column: Optional[str],
     technical_logs: Optional[list[str]] = None,
     require_openrouter: bool = False,
+    use_openrouter: bool = True,
 ) -> dict[str, Any]:
     """Generate structured dashboard copy, optionally requiring OpenRouter."""
     payload = build_evaluation_payload(
@@ -139,6 +140,14 @@ def generate_evaluation_insights(
         technical_logs=technical_logs,
     )
     fallback = build_fallback_evaluation_insights(payload)
+    if not use_openrouter:
+        return {
+            **fallback,
+            "source": "fallback",
+            "llm_used": False,
+            "model": settings.model_name or DEFAULT_OPENROUTER_MODEL,
+        }
+
     client = OpenRouterClient("EvaluationInsights")
 
     if not client.is_enabled():

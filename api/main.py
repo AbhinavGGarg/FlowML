@@ -319,6 +319,52 @@ def summarize_dataset(df: Optional[pd.DataFrame]) -> str:
     return f"rows={len(df)}, cols={len(df.columns)}, columns=[{preview_columns}]"
 
 
+def _target_looks_classification_like(series: pd.Series) -> bool:
+    """Heuristic guardrail: treat low-cardinality categorical/integer targets as classification."""
+    non_null = series.dropna()
+    if non_null.empty:
+        return False
+
+    unique_count = int(non_null.nunique(dropna=True))
+    if unique_count <= 2:
+        return True
+
+    if not pd.api.types.is_numeric_dtype(non_null):
+        return True
+
+    numeric_values = pd.to_numeric(non_null, errors="coerce").dropna()
+    if numeric_values.empty:
+        return False
+
+    integer_like = bool(np.all(np.isclose(numeric_values % 1, 0)))
+    if integer_like and unique_count <= 20:
+        return True
+
+    return False
+
+
+def _resolve_task_type(requested_task_type: str) -> str:
+    """Resolve task type with a safety override for binary/label-like numeric targets."""
+    requested = str(requested_task_type or "classification").strip().lower()
+    if requested not in {"classification", "regression"}:
+        requested = "classification"
+
+    if (
+        requested == "regression"
+        and pipeline_state.dataset is not None
+        and pipeline_state.target_column in pipeline_state.dataset.columns
+    ):
+        target_series = pipeline_state.dataset[pipeline_state.target_column]
+        if _target_looks_classification_like(target_series):
+            logger.info(
+                "Overriding requested task_type=regression to classification for target=%s",
+                pipeline_state.target_column,
+            )
+            return "classification"
+
+    return requested
+
+
 def make_json_safe(value: Any) -> Any:
     """Convert common Python, NumPy, and pandas objects to JSON-safe values."""
     if value is None or isinstance(value, (str, bool, int, float)):
@@ -1029,14 +1075,19 @@ async def run_pipeline_stage(stage: str, config: PipelineConfig):
                     *pipeline_state.stage_logs.get("loss", []),
                     *pipeline_state.stage_logs.get("evaluation", []),
                 ],
-                require_openrouter=True,
+                require_openrouter=False,
+                use_openrouter=settings.enable_evaluation_llm,
             )
             result["llm_insights"] = llm_insights
             result["llm_insights_path"] = persist_evaluation_insights(pipeline_state.pipeline_id, llm_insights)
             pipeline_state.stage_results["evaluation"] = result
             add_agent_summary_logs("evaluation", result)
             add_log(stage, format_evaluation_log(result))
-            add_log(stage, "Evaluation OpenRouter insights saved")
+            add_log(
+                stage,
+                "Evaluation insights generated"
+                + (" with OpenRouter" if llm_insights.get("llm_used") else " using deterministic fallback"),
+            )
 
         elif stage == "results":
             from agents.deployment_agent import DeploymentAgent
@@ -1344,6 +1395,7 @@ async def get_columns():
             "dtype": dtype,
             "is_numeric": is_numeric,
             "missing_pct": float(pipeline_state.dataset[col].isnull().mean()) if col in pipeline_state.dataset.columns else 0,
+            "unique_values": int(pipeline_state.dataset[col].nunique(dropna=True)),
         })
 
     return {"columns": columns}
@@ -1411,7 +1463,9 @@ async def start_pipeline(config: PipelineConfig = PipelineConfig()):
     if pipeline_state.target_column is None:
         raise HTTPException(status_code=400, detail="Target column not set")
 
-    pipeline_state.update_pipeline_config(config.model_dump())
+    resolved_task_type = _resolve_task_type(config.task_type)
+    effective_config = config.model_copy(update={"task_type": resolved_task_type})
+    pipeline_state.update_pipeline_config(effective_config.model_dump())
     start_new_pipeline_run()
 
     # Run all stages sequentially
@@ -1419,7 +1473,7 @@ async def start_pipeline(config: PipelineConfig = PipelineConfig()):
 
     for stage in stages_order:
         if pipeline_state.stage_statuses.get(stage) == "waiting":
-            await run_pipeline_stage(stage, config)
+            await run_pipeline_stage(stage, effective_config)
 
     maybe_record_revision(
         reason="Initial pipeline run",
@@ -1444,8 +1498,10 @@ async def run_stage(stage_id: str, config: PipelineConfig = PipelineConfig()):
     if stage_id not in pipeline_state.stage_statuses:
         raise HTTPException(status_code=404, detail=f"Stage '{stage_id}' not found")
 
-    pipeline_state.update_pipeline_config(config.model_dump())
-    await run_pipeline_stage(stage_id, config)
+    resolved_task_type = _resolve_task_type(config.task_type)
+    effective_config = config.model_copy(update={"task_type": resolved_task_type})
+    pipeline_state.update_pipeline_config(effective_config.model_dump())
+    await run_pipeline_stage(stage_id, effective_config)
 
     return {
         "stage_id": stage_id,

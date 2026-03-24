@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 
 from core.exceptions import AgentExecutionError
+from config import settings
 from utils.logger import get_logger
 from utils.openrouter_client import OpenRouterClient
 
@@ -248,6 +249,9 @@ class BaseAgent(ABC):
         dataset_summary: Optional[str],
     ) -> dict[str, Any]:
         """Build a structured summary for frontend logs."""
+        if not settings.enable_agent_summaries:
+            return self._build_fallback_agent_summary(result, args, kwargs, dataset_summary)
+
         input_payload = {
             "dataset": dataset_summary,
             "inputs": self._summarize_inputs(args, kwargs),
@@ -340,7 +344,7 @@ class BaseAgent(ABC):
 
     def _llm_enabled(self) -> bool:
         """Return whether OpenRouter is configured for this agent."""
-        return self._llm_client.is_enabled()
+        return bool(settings.enable_pipeline_llm and self._llm_client.is_enabled())
 
     def _generate_llm_json(
         self,

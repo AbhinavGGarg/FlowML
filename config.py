@@ -40,26 +40,38 @@ class Settings(BaseSettings):
         default="",
         description="Comma-separated fallback OpenRouter models to try if the primary model fails",
     )
+    enable_pipeline_llm: bool = Field(
+        default=False,
+        description="Enable LLM calls inside pipeline agents (model selection summaries, report copy, etc.)",
+    )
+    enable_evaluation_llm: bool = Field(
+        default=False,
+        description="Enable OpenRouter-generated evaluation insights during pipeline runs",
+    )
+    enable_agent_summaries: bool = Field(
+        default=False,
+        description="Enable per-agent LLM execution summaries",
+    )
     model_temperature: float = Field(default=0.7, description="LLM temperature (0.0-1.0)")
     model_max_tokens: int = Field(default=2000, description="Maximum tokens for LLM response")
 
     # Production settings
-    request_timeout: int = Field(default=60, description="HTTP request timeout in seconds")
-    max_retries: int = Field(default=3, description="Maximum number of retries for failed requests")
+    request_timeout: int = Field(default=18, description="HTTP request timeout in seconds")
+    max_retries: int = Field(default=1, description="Maximum number of retries for failed requests")
 
     # Pipeline settings
     default_test_size: float = Field(default=0.2, description="Default test set proportion")
     default_random_state: int = Field(default=42, description="Default random seed")
-    default_cv_folds: int = Field(default=5, description="Default cross-validation folds")
+    default_cv_folds: int = Field(default=3, description="Default cross-validation folds")
 
     # Advanced AutoML settings
-    enable_multi_model: bool = Field(default=True, description="Enable multi-model comparison")
-    enable_hpo: bool = Field(default=True, description="Enable hyperparameter optimization with Optuna")
+    enable_multi_model: bool = Field(default=False, description="Enable multi-model comparison")
+    enable_hpo: bool = Field(default=False, description="Enable hyperparameter optimization with Optuna")
     enable_ensemble: bool = Field(default=False, description="Enable ensemble building")
     ensemble_type: str = Field(default="stacking", description="Ensemble type: voting or stacking")
     ensemble_top_k: int = Field(default=3, description="Number of top models for ensemble")
-    n_hpo_trials: int = Field(default=20, description="Number of Optuna HPO trials")
-    parallel_training: bool = Field(default=True, description="Enable parallel model training")
+    n_hpo_trials: int = Field(default=5, description="Number of Optuna HPO trials")
+    parallel_training: bool = Field(default=False, description="Enable parallel model training")
 
 
 settings = Settings()

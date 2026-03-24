@@ -700,7 +700,12 @@ const Pipeline = () => {
 
 const inferTaskType = (columns: DatasetColumn[], selectedColumn: string): TaskType => {
   const column = columns.find((entry) => entry.name === selectedColumn);
-  return column?.is_numeric ? "regression" : "classification";
+  if (!column) return "classification";
+  if (!column.is_numeric) return "classification";
+  if (typeof column.unique_values === "number" && column.unique_values <= 20) {
+    return "classification";
+  }
+  return "regression";
 };
 
 export default Pipeline;
