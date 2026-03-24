@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore", message="resource_tracker: .*FileNotFoundError
 
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel
@@ -171,6 +171,24 @@ class ChatStatusResponse(BaseModel):
     status: str
     detail: Optional[str] = None
     last_checked_at: Optional[str] = None
+
+
+class PredictionMarketSimulationResponse(BaseModel):
+    strategy: str
+    task_type: str
+    positive_label: str
+    market_probability: float
+    edge_threshold: float
+    fee_bps: float
+    trade_count: int
+    hold_count: int
+    hit_rate: float
+    total_pnl: float
+    avg_pnl_per_trade: float
+    max_drawdown: float
+    sharpe_like: float
+    equity_curve: list[float]
+    recent_signals: list[dict[str, Any]]
 
 
 CHAT_CONTEXT_OMIT_KEYS = {
@@ -1096,6 +1114,137 @@ async def root():
     return {"message": "FlowML AutoML API", "version": "1.0.0"}
 
 
+def _simulate_prediction_market_signals(
+    evaluation: dict[str, Any],
+    *,
+    market_probability: float,
+    edge_threshold: float,
+    fee_bps: float,
+) -> PredictionMarketSimulationResponse:
+    """Build a lightweight prediction-market simulation from classification outputs."""
+    if str(evaluation.get("task_type", "")).lower() != "classification":
+        raise HTTPException(status_code=400, detail="Prediction-market simulation requires classification results")
+
+    y_test = evaluation.get("y_test")
+    predictions = evaluation.get("predictions")
+    confidence = evaluation.get("prediction_confidence") or []
+    class_probabilities = evaluation.get("class_probabilities")
+    probability_labels = evaluation.get("probability_labels") or []
+
+    if not isinstance(y_test, list) or not isinstance(predictions, list) or len(y_test) == 0:
+        raise HTTPException(status_code=400, detail="Evaluation outputs are not available for simulation")
+
+    labels = [str(value) for value in (probability_labels if isinstance(probability_labels, list) else [])]
+    if not labels:
+        labels = sorted({str(value) for value in y_test})
+    if len(labels) != 2:
+        raise HTTPException(
+            status_code=400,
+            detail="Prediction-market simulation currently supports binary classification only",
+        )
+
+    positive_candidates = {"1", "true", "yes", "win", "up", "long"}
+    positive_label = next((label for label in labels if label.strip().lower() in positive_candidates), labels[-1])
+    positive_index = labels.index(positive_label)
+
+    market_probability = float(np.clip(market_probability, 0.01, 0.99))
+    edge_threshold = float(max(edge_threshold, 0.0))
+    fee_rate = float(max(fee_bps, 0.0)) / 10000.0
+
+    p_yes_values: list[float] = []
+    if isinstance(class_probabilities, list) and class_probabilities:
+        for row in class_probabilities:
+            if not isinstance(row, list) or len(row) <= positive_index:
+                continue
+            try:
+                p_yes_values.append(float(np.clip(float(row[positive_index]), 0.0, 1.0)))
+            except Exception:
+                p_yes_values.append(0.5)
+
+    if len(p_yes_values) != len(y_test):
+        p_yes_values = []
+        for idx, prediction in enumerate(predictions):
+            row_conf = confidence[idx] if idx < len(confidence) else 0.5
+            conf = float(np.clip(float(row_conf), 0.0, 1.0))
+            predicted_is_yes = str(prediction) == positive_label
+            p_yes_values.append(conf if predicted_is_yes else 1.0 - conf)
+
+    equity_curve = [0.0]
+    trade_returns: list[float] = []
+    recent_signals: list[dict[str, Any]] = []
+    wins = 0
+    hold_count = 0
+
+    for idx, actual in enumerate(y_test):
+        p_yes = p_yes_values[idx]
+        edge = p_yes - market_probability
+
+        if edge >= edge_threshold:
+            action = "long_yes"
+        elif edge <= -edge_threshold:
+            action = "long_no"
+        else:
+            action = "hold"
+
+        pnl = 0.0
+        outcome_yes = str(actual) == positive_label
+        if action == "long_yes":
+            pnl = (1.0 - market_probability - fee_rate) if outcome_yes else -(market_probability + fee_rate)
+        elif action == "long_no":
+            pnl = (market_probability - fee_rate) if not outcome_yes else -((1.0 - market_probability) + fee_rate)
+        else:
+            hold_count += 1
+
+        if action != "hold":
+            trade_returns.append(float(pnl))
+            if pnl > 0:
+                wins += 1
+            if len(recent_signals) < 12:
+                recent_signals.append(
+                    {
+                        "index": idx,
+                        "action": action,
+                        "model_probability": round(float(p_yes), 4),
+                        "edge": round(float(edge), 4),
+                        "outcome": "yes" if outcome_yes else "no",
+                        "pnl": round(float(pnl), 4),
+                    }
+                )
+
+        equity_curve.append(float(equity_curve[-1] + pnl))
+
+    running_peak = equity_curve[0]
+    max_drawdown = 0.0
+    for value in equity_curve:
+        running_peak = max(running_peak, value)
+        max_drawdown = max(max_drawdown, running_peak - value)
+
+    trade_count = len(trade_returns)
+    avg_trade = float(np.mean(trade_returns)) if trade_returns else 0.0
+    std_trade = float(np.std(trade_returns)) if trade_returns else 0.0
+    sharpe_like = (avg_trade / std_trade) * np.sqrt(trade_count) if trade_count > 1 and std_trade > 0 else 0.0
+    hit_rate = float(wins / trade_count) if trade_count > 0 else 0.0
+    total_pnl = float(equity_curve[-1]) if equity_curve else 0.0
+
+    return PredictionMarketSimulationResponse(
+        strategy="edge_threshold_binary_market",
+        task_type="classification",
+        positive_label=positive_label,
+        market_probability=market_probability,
+        edge_threshold=edge_threshold,
+        fee_bps=fee_bps,
+        trade_count=trade_count,
+        hold_count=hold_count,
+        hit_rate=hit_rate,
+        total_pnl=total_pnl,
+        avg_pnl_per_trade=avg_trade,
+        max_drawdown=float(max_drawdown),
+        sharpe_like=float(sharpe_like),
+        equity_curve=[round(float(value), 5) for value in equity_curve],
+        recent_signals=recent_signals,
+    )
+
+
 @app.post("/api/dataset/upload")
 async def upload_dataset(file: UploadFile = File(...)):
     """Upload a dataset file."""
@@ -1508,6 +1657,25 @@ async def get_metrics():
         "confusion_matrix": evaluation.get("confusion_matrix", []),
         "baseline_metrics": evaluation.get("baseline_metrics"),
     }
+
+
+@app.get("/api/results/prediction-market-simulation", response_model=PredictionMarketSimulationResponse)
+async def get_prediction_market_simulation(
+    market_probability: float = Query(default=0.5, ge=0.01, le=0.99),
+    edge_threshold: float = Query(default=0.08, ge=0.0, le=0.49),
+    fee_bps: float = Query(default=15.0, ge=0.0, le=200.0),
+):
+    """Simulate a prediction-market signal strategy from current evaluation outputs."""
+    evaluation = pipeline_state.stage_results.get("evaluation")
+    if not isinstance(evaluation, dict) or not evaluation:
+        raise HTTPException(status_code=404, detail="Run evaluation first to generate simulation outputs")
+
+    return _simulate_prediction_market_signals(
+        evaluation,
+        market_probability=market_probability,
+        edge_threshold=edge_threshold,
+        fee_bps=fee_bps,
+    )
 
 
 @app.get("/api/results/evaluation-insights", response_model=EvaluationInsightsResponse)

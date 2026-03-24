@@ -125,6 +125,14 @@ class EvaluationAgent(BaseAgent):
         probabilities, confidences = self._get_classification_confidence(model, X_test)
         roc_auc = self._compute_roc_auc(y_test, probabilities)
         baseline_metrics = self._build_classification_baseline(y_test)
+        probability_labels = [
+            str(label)
+            for label in (
+                getattr(model, "classes_", np.unique(y_test))
+                if probabilities is not None
+                else np.unique(y_test)
+            )
+        ]
 
         return {
             "accuracy": float(accuracy),
@@ -138,6 +146,8 @@ class EvaluationAgent(BaseAgent):
             "predictions": np.asarray(y_pred).tolist(),
             "y_test": y_test.tolist(),
             "prediction_confidence": confidences,
+            "class_probabilities": probabilities.tolist() if probabilities is not None else None,
+            "probability_labels": probability_labels,
             "baseline_metrics": baseline_metrics,
             "task_type": "classification",
         }
