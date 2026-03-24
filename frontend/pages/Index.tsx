@@ -20,7 +20,6 @@ const Index = () => {
             <WaterLogo className="h-11 w-11" />
             <div>
               <p className="text-xl font-semibold tracking-tight text-blue-100">FlowML</p>
-              <p className="text-xs uppercase tracking-[0.22em] text-blue-300/70">Waterline Intelligence</p>
             </div>
           </div>
           <Link

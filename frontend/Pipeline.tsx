@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import { stages, type PipelineStage, type StageStatus } from "@/data/pipelineStages";
 import {
   getDatasetColumns,
@@ -401,6 +402,14 @@ const Pipeline = () => {
     <>
       <NeuralBackground />
       <div className="relative z-10 mx-auto w-full max-w-6xl space-y-5 px-4 pb-8 pt-4 sm:pt-6">
+        <div className="relative z-20">
+          <Link
+            to="/"
+            className="inline-flex items-center rounded-full border border-blue-400/40 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold tracking-wide text-blue-100 transition hover:border-blue-300 hover:bg-blue-500/25"
+          >
+            ← Back to Home
+          </Link>
+        </div>
         <div className="relative z-20 mb-6 flex items-end gap-4 sm:mb-8 sm:gap-6">
           <WaterLogo className="h-auto w-24 sm:w-32 md:w-36 lg:w-40" />
           <div className="translate-y-1 sm:translate-y-2">
