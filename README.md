@@ -1,67 +1,68 @@
 # FlowML
 
-> Turn any CSV into a production-ready model and know exactly how and why, every step of the way.
+> Convert a CSV into a deployable ML service, with transparent reasoning at every stage.
 
-Most dev teams sit on data worth predicting from and never act on it. Not because the idea isn't there, but because building a reliable ML pipeline is a project in itself: weeks of preprocessing decisions, model selection guesswork, hyperparameter tuning, and evaluation work, all before you've written a single line of serving code.
+Most teams have useful data but never ship predictive features because the setup cost is high: data cleaning, model choice, tuning, validation, packaging, and documentation. That process can take weeks before anyone sees value.
 
-**FlowML removes all of that.**
+**FlowML compresses that process into one guided pipeline.**
 
-Upload a dataset. Pick a target column. A team of AI agents handles the rest (analysis, feature engineering, model selection, training, evaluation, and deployment) while logging every decision it makes so you can inspect, trust, and ship the result.
+Upload a dataset, choose a target column, and let a coordinated set of AI agents execute analysis, preprocessing, feature work, training, evaluation, and deployment prep. Every decision is logged so you can inspect exactly what happened and why.
 
-And when the pipeline finishes, you're not done interacting with it. A conversational chatbot agent sits on top of the entire system, letting you modify, rerun, and interrogate the pipeline through natural language. Ask why a feature was selected. Undo a change. Compare two models. It plans the revision, executes the affected stages, and tracks the full history, so every experiment is reproducible and nothing is lost.
+FlowML also includes a conversational control layer. You can ask the system to revise a stage, compare model runs, explain feature choices, or roll back and rerun. It tracks changes and preserves experiment history so results remain reproducible.
 
-No ML background required. No black box you can't interrogate. No hand-off to a specialist.
+No specialized ML handoff required. No opaque automation. No guesswork about how the model was produced.
 
 ---
 
 ## What it does
 
-1. **Upload a dataset**: drag and drop a CSV into the browser
-2. **Pick a target column**: the column you want to predict
-3. **Run the pipeline**: eight agents execute in sequence, visualised in real time
-4. **Inspect every decision**: click any stage to see what the agent did and why
-5. **Refine conversationally**: tell the chatbot what you want to change; it plans the revision, reruns only the affected stages, and stores the diff
-6. **Ship the result**: download a deployment package with a working REST API, Docker config, and a plain-English model report ready for stakeholders
+1. **Upload data**: import a CSV in the web UI
+2. **Select target**: choose the column to predict
+3. **Execute pipeline**: eight agents run in order with live status updates
+4. **Audit decisions**: inspect stage outputs and rationale
+5. **Refine by chat**: request changes in natural language and rerun only impacted stages
+6. **Deliver artifact**: export a complete deployment package with API and documentation
 
 ---
 
 ## Pipeline stages
 
-| Agent | What it does |
+| Agent | Responsibility |
 |---|---|
-| `DataAnalyzerAgent` | Profiles columns, flags missing values and outliers, builds correlation view |
-| `PreprocessorAgent` | Imputes, encodes categoricals, scales numerics, splits train/test |
-| `FeatureEngineeringAgent` | Creates polynomial and interaction features, prunes redundant ones |
-| `ModelSelectionAgent` | Selects up to 3 candidate algorithms with fixed params and search spaces |
-| `TrainingAgent` | Trains all candidates, runs Optuna HPO per candidate, compares by CV score |
-| `EvaluationAgent` | Computes metrics, detects overfitting, decides deploy or reject |
-| `DeploymentAgent` | Saves model and metadata, generates deployment package |
-| `ExplanationGeneratorAgent` | Generates feature importance and SHAP-style explanations |
+| `DataAnalyzerAgent` | Profiles dataset quality, missingness, outliers, and relationships |
+| `PreprocessorAgent` | Handles imputation, encoding, scaling, and train/test splitting |
+| `FeatureEngineeringAgent` | Builds interaction and polynomial features, removes weak/redundant features |
+| `ModelSelectionAgent` | Chooses up to three candidate algorithms and tuning spaces |
+| `TrainingAgent` | Trains candidates, runs Optuna tuning, compares CV performance |
+| `EvaluationAgent` | Computes final metrics, checks overfit risk, decides readiness |
+| `DeploymentAgent` | Saves model assets and assembles deployable bundle |
+| `ExplanationGeneratorAgent` | Produces feature-importance and SHAP-style interpretation output |
 
 ---
 
 ## Conversational pipeline agent
-A floating chat interface gives you full control over the pipeline through natural language. This isn't just a Q&A wrapper-- it's an orchestration agent that can modify, rerun, and audit the pipeline safely.
+
+The chat panel is not a simple Q&A layer. It acts as an orchestration interface that can update configuration, trigger scoped reruns, and explain pipeline behavior with full context from prior runs.
 
 ---
 
 ## Deployment package
 
-A successful pipeline produces a ready-to-ship zip containing:
+A successful run exports a ready-to-ship archive:
 
-```
+```text
 deployment/
-  app.py              ← FastAPI serving endpoint, schema-validated
-  requirements.txt    ← pinned to training versions
+  app.py              ← FastAPI serving endpoint with schema checks
+  requirements.txt    ← dependency versions aligned to training
   Dockerfile
   docker-compose.yml
-  schema.json         ← column names, types, expected ranges
-  README.md           ← What the model does, caveats, input/output spec
-  model.pkl           ← trained model artifact 
-  report.html         ← styled pipeline report with metrics and explanations
+  schema.json         ← expected columns, dtypes, and value boundaries
+  README.md           ← model behavior, caveats, I/O contract
+  model.pkl           ← trained model artifact
+  report.html         ← formatted metrics + explanation report
 ```
 
-`docker-compose up` and your model is serving. The generated `README.md` transfers knowledge automatically, removing human dependency.
+Run `docker-compose up` and the service is online. The generated deployment README captures key operational context so deployment knowledge is not trapped with one person.
 
 ---
 
@@ -72,7 +73,7 @@ deployment/
 - pandas / NumPy
 - scikit-learn
 - XGBoost / LightGBM
-- Optuna (HPO)
+- Optuna
 - SHAP
 
 ### Frontend
@@ -85,15 +86,15 @@ deployment/
 
 ## Project structure
 
-```
-agents/        Specialized AutoML agents (analysis, preprocessing, training, etc.)
-api/           FastAPI endpoints and pipeline stage execution
-core/          Orchestration and ML utilities (comparison, HPO, ensembling)
-frontend/      React UI and dashboards
+```text
+agents/        AutoML agents (analysis, prep, training, eval, deploy)
+api/           FastAPI routes and stage execution endpoints
+core/          Orchestration, comparison, HPO, and ML utilities
+frontend/      React interface and dashboards
 utils/         Shared helpers (logging, OpenRouter client, insights)
-tests/         Pytest test suite
-outputs/       Saved artifacts (models, metadata, reports, deployment zips)
-uploads/       Uploaded datasets (deleted after pipeline completes)
+tests/         Pytest suite
+outputs/       Artifacts (models, reports, deployment bundles)
+uploads/       Uploaded CSV files (cleaned up after completion)
 ```
 
 ---
@@ -108,24 +109,24 @@ pip install -r requirements.txt
 
 ### 2. Configure environment
 
-Copy `.env.template` to `.env` and set OPENROUTER_API_KEY:
+Copy `.env.template` to `.env` and set the required key:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `OPENROUTER_API_KEY` | — | Required for all LLM calls |
-| `MODEL_NAME` | `arcee-ai/trinity-large-preview:free` | LLM model |
-| `ENABLE_MULTI_MODEL` | `true` | Train all candidates vs. just one |
-| `ENABLE_HPO` | `true` | Run Optuna HPO |
-| `N_HPO_TRIALS` | `20` | Optuna trial budget |
-| `ENABLE_ENSEMBLE` | `false` | Stack/vote ensemble after training |
+| `OPENROUTER_API_KEY` | — | Required for LLM calls |
+| `MODEL_NAME` | `arcee-ai/trinity-large-preview:free` | LLM selection |
+| `ENABLE_MULTI_MODEL` | `true` | Train all candidates or single model |
+| `ENABLE_HPO` | `true` | Enable Optuna search |
+| `N_HPO_TRIALS` | `20` | Optuna budget |
+| `ENABLE_ENSEMBLE` | `false` | Enable stacking/voting after training |
 
-### 3. Run the backend
+### 3. Start backend
 
 ```bash
 uvicorn api.main:app --reload --port 8000
 ```
 
-### 4. Run the frontend
+### 4. Start frontend
 
 ```bash
 cd frontend
@@ -133,7 +134,7 @@ npm install
 npm run dev
 ```
 
-The frontend targets `http://127.0.0.1:8000` by default.
+Frontend points to `http://127.0.0.1:8000` by default.
 
 ---
 
@@ -143,7 +144,7 @@ The frontend targets `http://127.0.0.1:8000` by default.
 
 ```bash
 pytest
-pytest tests/test_agents.py -v   # specific file
+pytest tests/test_agents.py -v
 ```
 
 ### Frontend
@@ -151,7 +152,7 @@ pytest tests/test_agents.py -v   # specific file
 ```bash
 cd frontend
 npm test
-npx tsc --noEmit   # type check
+npx tsc --noEmit
 ```
 
 ---
@@ -161,17 +162,17 @@ npx tsc --noEmit   # type check
 | Method | Endpoint | Purpose |
 |---|---|---|
 | `POST` | `/api/dataset/upload` | Upload CSV |
-| `GET` | `/api/dataset/summary` | Dataset profile |
-| `GET` | `/api/dataset/columns` | Column list |
-| `POST` | `/api/dataset/target` | Set target column |
-| `POST` | `/api/pipeline/stage/{stage_id}` | Run a pipeline stage |
-| `GET` | `/api/pipeline/status` | Current pipeline state |
-| `GET` | `/api/pipeline/logs` | Live logs |
-| `GET` | `/api/stages/{stage_id}/results` | Stage result detail |
-| `GET` | `/api/results/metrics` | Final evaluation metrics |
-| `GET` | `/api/results/explanation` | Feature importance / SHAP |
-| `GET` | `/api/results/evaluation-insights` | Overfitting analysis |
-| `GET` | `/api/results/download/model` | Download model artifact |
+| `GET` | `/api/dataset/summary` | Dataset summary |
+| `GET` | `/api/dataset/columns` | Available columns |
+| `POST` | `/api/dataset/target` | Set prediction target |
+| `POST` | `/api/pipeline/stage/{stage_id}` | Execute a stage |
+| `GET` | `/api/pipeline/status` | Pipeline status |
+| `GET` | `/api/pipeline/logs` | Live execution logs |
+| `GET` | `/api/stages/{stage_id}/results` | Stage output details |
+| `GET` | `/api/results/metrics` | Final model metrics |
+| `GET` | `/api/results/explanation` | Importance and explanation output |
+| `GET` | `/api/results/evaluation-insights` | Generalization and overfit analysis |
+| `GET` | `/api/results/download/model` | Download model file |
 | `GET` | `/api/results/download/logs` | Download run logs |
-| `GET` | `/api/results/download/deployment-package` | Download deployment zip |
+| `GET` | `/api/results/download/deployment-package` | Download deployment archive |
 | `GET` | `/api/results/download/report` | Download HTML report |
